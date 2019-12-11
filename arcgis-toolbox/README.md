@@ -1,8 +1,41 @@
-Telecoupling Toolbox: ArcGIS Toolbox v1.3b
+Telecoupling Toolbox: ArcGIS Toolbox v2.3
 ========================
 
 ## Major Releases
 ------------------
+
+* Version 2.3
+
+This release adds a new tool to the Flows toolset, called *Commodity Trade*. This tool maps the trade of commodities between 2010 and 2014 for a select set of commodities.
+
+* Version 2.2
+
+This release adds two new tools to the Environmental Analysis toolset, called *Coastal Blue Carbon* and *Coastal Blue Carbon Preprocessor*, respectively, customized from InVEST (3.3.3). This tools can be used to predict the amount of carbon stored and sequestered over a coastal zone at particular points in time due to changes in land cover.
+
+* Version 2.1
+
+This release adds a new tool to the Environmental Analysis toolset, called *Sedimenty Delivery Ratio*, customized from InVEST (3.3.3). This tool can be used to estimate overland sediment generation and delivery to the stream.
+
+* Version 2.0
+
+This release adds a new tool to the Socioeconomic Analysis toolset, called *Food Security*. This tool can be used to estimate rainfall and distance to market within an area of interest.
+
+* Version 1.7 (_beta_)
+
+This release adds a new tool within the Environmental Analysis toolset, called *Seasonal Water Yield*, customized from InVEST (3.3.3). This tool can be used to estimate the contribution of a pixel in a watershed to baseflow, quickflow, and local recharge.
+
+* Version 1.6 (_beta_)
+
+This release adds a new tool within the Environmental Analysis toolset, called *Fisheries Harvest*, customized from InVEST (3.3.3). This tool can be used to quantify catch volume and economic value.
+
+* Version 1.5 (_beta_)
+
+This release adds a new tool within the Systems toolset, called Network Analysis Grouping, written in R and connected to ArcGIS using the R-Bridge from ESRI. This tool uses network information (i.e. nodes, links, and directions) of units (e.g. countries, areas, administrative units) within a telecoupling system and aggregates them into groups (clusters) based on their network connectivity.
+
+* Version 1.4 (_beta_)
+
+This release adds a new tool within the Environmental Analysis toolset, called _NDR (Nutrient Delivery Ratio)_, customized from InVEST (3.3.3). This tools can be used to map nutrient sources from watersheds and their transport to the stream.
+
 * Version 1.3 (_beta_)
 
 This release adds a new tool within the Socieconomic Analysis toolset, called _Nutrition Metrics_, a custom tool that estimates the population within an Area of Interest (AOI) by age groups and then calculates the Lower Limit of Energy Requirement (LLER; in kilocalories / day) for age groups within the AOI. _NOTE: This tool will only run with Areas of Interest in Africa, Asia, or South America / Central America / Caribbean._
@@ -38,6 +71,18 @@ The toolbox is still in _alpha_ development stage and is being tested for bugs a
 
 ## Minor Releases
 ------------------
+* Version 1.7.3 (_beta_)
+
+This release adds network analysis metrics (within an output .csv file) to the *Network Analysis Grouping* tool.
+
+* Version 1.7.2 (_beta_)
+
+This release removed the dependence on mosaic data sets from the *Nutrition Metrics* tool. This tool now relies on rasters grouped in a common folder rather than construction of a mosaic data set.
+
+* Version 1.7.1 (_beta_)
+
+This release re-organizes the *Crop Production* and the *Fisheries Harvest* InVEST __3.3.3__ tools into the Socioeconomic Analysis toolset.
+
 * Version 1.2.1 (_alpha_)
 
 Fixed bug in the Habitat Quality tool (Effects toolset) potentially producing negative values for habitat quality and degradation output rasters.
@@ -122,7 +167,7 @@ Follow these steps to add the Toolbox to your ArcMap document:
 
 1. Open ArcMap
 2. Right-click on the ArcToolbox folder and select "Add Toolbox"
-3. Browse to the unzipped ArcGIS Toolbox folder and select `Telecoupling Toolbox v1.3b.tbx`
+3. Browse to the unzipped ArcGIS Toolbox folder and select `Telecoupling Toolbox v2.3.tbx`
 
 Inside the Telecoupling Toolbox you should see 5 toolsets (*__agents__*, *__causes__*, *__environmental analysis__*, *__socioeconomic analysis__*, *__flows__*, *__systems__*) and a number of python tool scripts inside each one of them. 
 
@@ -133,13 +178,13 @@ To learn more about what each tool script does and what parameters it takes, ple
 ![Figure 6](Figs/ex6.png)
 ![Figure 7](Figs/ex7.png)
 
-That's it! The Telecoupling Toolbox is now added to the ArcToolbox list and you can start using it with the set of [sample data](https://s3.amazonaws.com/telecoupling-toolbox-sample-data/SampleData_ArcGIS_v1.3b.zip)
+That's it! The Telecoupling Toolbox is now added to the ArcToolbox list and you can start using it with the set of [sample data](https://s3.amazonaws.com/telecoupling-toolbox-sample-data/SampleData_ArcGIS_v2.3.zip)
 After unzipping the sample data folder, you will see a mix of GIS (vector, raster) data and tables (.csv) needed as input parameters by the script tools.
 
 ## Credits and Contacts
 ---------------------
 
-© 2017 Michigan State University 
+© 2018 Michigan State University 
 
 Francesco Tonini: <ftonini84@gmail.com>
 
@@ -155,12 +200,12 @@ Telecoupling Toolbox (“Software”) is the property of Michigan State Universi
 
 * This toolbox depends on the R Statistical Computing Software:
 
-© 2017 The [R Foundation for Statistical Computing](https://www.r-project.org/). R is free software and comes with ABSOLUTELY NO WARRANTY. See the [COPYRIGHTS](https://github.com/wch/r-source/blob/trunk/doc/COPYRIGHTS) file for details.
+© 2018 The [R Foundation for Statistical Computing](https://www.r-project.org/). R is free software and comes with ABSOLUTELY NO WARRANTY. See the [COPYRIGHTS](https://github.com/wch/r-source/blob/trunk/doc/COPYRIGHTS) file for details.
 
 * This toolbox depends on [ESRI software](www.esri.com):
 
-© 2017 ESRI. See the [Software License and Agreement](http://www.esri.com/legal/software-license) for details.
+© 2018 ESRI. See the [Software License and Agreement](http://www.esri.com/legal/software-license) for details.
 
 * This toolbox depends on [InVEST - Natural Capital Project software](http://www.naturalcapitalproject.org/invest/):
 
-© 2017 NatCap Project. See the [Software License and Agreement](https://pypi.python.org/pypi/natcap.invest/3.3.1) for details.
+© 2018 NatCap Project. See the [Software License and Agreement](https://pypi.python.org/pypi/natcap.invest/3.3.1) for details.

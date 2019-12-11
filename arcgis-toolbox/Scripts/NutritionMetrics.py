@@ -14,51 +14,59 @@ import shutil
 arcpy.CheckOutExtension("Spatial")
 arcpy.env.overwriteOutput = True
 
+#Set whether tool is licensed
+def isLicensed():
+    try:
+        if arcpy.CheckExtension("Spatial") == "Available":
+            arcpy.CheckOutExtension("Spatial")
+        else:
+            raise Exception
+    except:
+        return False
+    return True
+
 def autoIncrement(pInterval = 1):
 	global rec
 	rec = rec + pInterval
 	return rec
 
-def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaicDB):
+def nutritionMetrics(AOI, year, maleStature, femaleStature, rasterList):
 
 	#Create intermediate folder where output will be temporarily saved
 	arcpy.CreateFolder_management(arcpy.env.scratchFolder, "intOutput")
-	arcpy.AddMessage("scratch folder was created")
+	#arcpy.AddMessage("scratch folder was created")
 	os.chdir(os.path.join(arcpy.env.scratchFolder, "intOutput"))
-	arcpy.AddMessage("Calculating nutrition metrics. This may take several minutes depending on size of AOI... ")
+	arcpy.AddMessage("Calculating nutrition metrics... ")
 	
-	#Export only images consistent with the Year and Area of Interest
-	query = "Year = " + year
-	basename = "ageStructure_" 
-	arcpy.ExportMosaicDatasetItems_management(mosaicDB, os.path.join(arcpy.env.scratchFolder, "intOutput"), basename, query, "", "", "FEATURE_CLASS", AOI)
+	#Return only rasters with the year selected by the user
+	rasterYearList = []
+	for r in rasterList:
+		if year in r:
+			rasterYearList.append(r)
 	
-	#Clip the exported extents by the AOI
-	for file in os.listdir(os.path.join(arcpy.env.scratchFolder, "intOutput")):
-		if file.endswith(".TIF"):
-			rasterName = file.split(".")[0]
-			rasterName = rasterName + ".img"
-			outExtractByMask = ExtractByMask(file, AOI)
-			outExtractByMask.save(os.path.join(arcpy.env.scratchFolder, "intOutput", rasterName))
-			os.remove(file)
+	#Clip the continent raster by the AOI
+	for r in rasterYearList:
+		rasterName = r[:-4] + "_clip.img"
+		outExtractByMask = ExtractByMask(r, AOI)
+		outExtractByMask.save(os.path.join(arcpy.env.scratchFolder, "intOutput", rasterName))
 	
-	#Loop through the exported rasters and calculate nutrition metrics for each rasters
-	rasterList = []
-	for file in os.listdir(os.path.join(arcpy.env.scratchFolder, "intOutput")):
-		if file.endswith(".img"):
-			rasterList.append(file)
+	#Loop through the exported rasters and calculate nutrition metrics for each raster
+	#Get a list of the clipped rasters
+	arcpy.env.workspace = os.path.join(arcpy.env.scratchFolder, "intOutput")
+	clippedRasterList = arcpy.ListRasters()
 	
 	#Calculate nutrition metrics
 	LLER = 0    #This will keep the tally of 'Lower Limit of Energy Requirement' in kcal/day for the study area (AOI).
 	totalPop = 0    #This will keep the tally of total population in the study area (AOI).
-	regex = re.compile(r'\d+')    #Recognizes numerical values in raster names.  This will be used to capture OID values.
+	groupList = []
 	maleStatureInt = float(maleStature)
 	femaleStatureInt = float(femaleStature)
-	for r in rasterList:
-		OID = regex.findall(r)[0]
+	#arcpy.AddMessage(clippedRasterList)
+	for r in clippedRasterList:
 		
 		#The appropriate equation is added to each age group and a running tally of LLER is kept.
 		#The female 00-04 age group
-		if OID in ["1", "2", "3", "4", "5"]:
+		if "0004_F" in r:
 			height = (femaleStatureInt / 161.8) * 84.97556    #note that 2014 heights for Americans are used to standardized height values (CDC, 2016)
 			kg50 = 15.5 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -66,9 +74,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf0004 = ((263.4 + 65.3 * kg50 - 0.454 * (kg50)**2) + (6.3 * 2)) * popf0004
 			LLER += nutf0004
 			totalPop += popf0004
+			sexAge = "0004_F"
+			groupList.append(sexAge)
 		
 		#The male 00-04 age group
-		elif OID in ["6", "7", "8", "9", "10"]:
+		elif "0004_M" in r:
 			height = (maleStatureInt / 175.7) * 86.4522
 			kg50 = 15.8 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -76,9 +86,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm0004 = ((310.2 + 63.3 * kg50 - 0.263 * (kg50)**2) + (6.3 * 2)) * popm0004
 			LLER += nutm0004
 			totalPop += popm0004
+			sexAge = "0004_M"
+			groupList.append(sexAge)
 		
 		#The female 05-09 age group
-		elif OID in ["11", "12", "13", "14", "15"]:
+		elif "0509_F" in r:
 			height = (femaleStatureInt / 161.8) * 121.7617
 			kg50 = 15.52 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -86,9 +98,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf0509 = ((263.4 + 65.3 * kg50 - 0.454 * (kg50)**2) + (8.22 * 2)) * popf0509
 			LLER += nutf0509
 			totalPop += popf0509
-			
+			sexAge = "0509_F"
+			groupList.append(sexAge)
+		
 		#The male 05-09 age group
-		elif OID in ["16", "17", "18", "19", "20"]:
+		elif "0509_M" in r:
 			height = (maleStatureInt / 175.7) * 122.0305
 			kg50 = 15.6 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -96,9 +110,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm0509 = ((310.2 + 63.3 * kg50 - 0.263 * (kg50)**2) + (6.58 * 2)) * popm0509
 			LLER += nutm0509
 			totalPop += popm0509
-			
+			sexAge = "0509_M"
+			groupList.append(sexAge)
+		
 		#The female 10-14 age group
-		elif OID in ["21", "22", "23", "24", "25"]:
+		elif "1014_F" in r:
 			height = (femaleStatureInt / 161.8) * 151.4866
 			kg5 = 15.19 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -106,9 +122,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf1014 = (0.85 * (263.4 + 65.3 * kg5 - 0.454 * (kg5)**2) + (9.86 * 2)) * popf1014
 			LLER += nutf1014
 			totalPop += popf1014
+			sexAge = "1014_F"
+			groupList.append(sexAge)
 			
 		#The male 10-14 age group
-		elif OID in ["26", "27", "28", "29", "30"]:
+		elif "1014_M" in r:
 			height = (maleStatureInt / 175.7) * 149.3088
 			kg5 = 15.14 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -116,9 +134,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm1014 = (0.85 * (310.2 + 63.3 * kg5 - 0.263 * (kg5)**2) + (10.41 * 2)) * popm1014
 			LLER += nutm1014
 			totalPop += popm1014
+			sexAge = "1014_M"
+			groupList.append(sexAge)
 			
 		#The female 15-19 age group
-		elif OID in ["31", "32", "33", "34", "35"]:
+		elif "1519_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.1308
 			kg5 = 17.19 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -126,9 +146,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf1519 = (1.55 * (486.6 + 8.126 * kg5)) * popf1519
 			LLER += nutf1519
 			totalPop += popf1519
+			sexAge = "1519_F"
+			groupList.append(sexAge)
 			
 		#The male 15-19 age group
-		elif OID in ["36", "37", "38", "39", "40"]:
+		elif "1519_M" in r:
 			height = (maleStatureInt / 175.7) * 176.185
 			kg5 = 18.10 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -136,9 +158,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm1519 = (1.55 * (692.2 + 15.057 * kg5)) * popm1519
 			LLER += nutm1519
 			totalPop += popm1519
+			sexAge = "1519_M"
+			groupList.append(sexAge)
 			
 		#The female 20-24 age group
-		elif OID in ["41", "42", "43", "44", "45"]:
+		elif "2024_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -146,9 +170,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf2024 = (1.55 * (486.6 + 8.126 * kg5)) * popf2024
 			LLER += nutf2024
 			totalPop += popf2024
+			sexAge = "2024_F"
+			groupList.append(sexAge)
 			
 		#The male 20-24 age group
-		elif OID in ["46", "47", "48", "49", "50"]:
+		elif "2024_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -156,9 +182,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm2024 = (1.55 * (692.2 + 15.057 * kg5)) * popm2024
 			LLER += nutm2024
 			totalPop += popm2024
+			sexAge = "2024_M"
+			groupList.append(sexAge)
 		
 		#The female 25-29 age group
-		elif OID in ["51", "52", "53", "54", "55"]:
+		elif "2529_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -166,9 +194,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf2529 = (1.55 * (486.6 + 8.126 * kg5)) * popf2529
 			LLER += nutf2529
 			totalPop += popf2529
+			sexAge = "2529_F"
+			groupList.append(sexAge)
 			
 		#The male 25-29 age group 
-		elif OID in ["56", "57", "58", "59", "60"]:
+		elif "2529_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -176,9 +206,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm2529 = (1.55 * (692.2 + 15.057 * kg5)) * popm2529
 			LLER += nutm2529
 			totalPop += popm2529
+			sexAge = "2529_M"
+			groupList.append(sexAge)
 			
 		#The female 30-34 age group
-		elif OID in ["61", "62", "63", "64", "65"]:
+		elif "3034_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -186,9 +218,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf3034 = (1.55 * (845.6 + 8.118 * kg5)) * popf3034
 			LLER += nutf3034
 			totalPop += popf3034
+			sexAge = "3034_F"
+			groupList.append(sexAge)
 			
 		#The male 30-34 age group
-		elif OID in ["66", "67", "68", "69", "70"]:
+		elif "3034_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -196,9 +230,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm3034 = (1.55 * (873.1 + 11.472 * kg5)) * popm3034
 			LLER += nutm3034
 			totalPop += popm3034
+			sexAge = "3034_M"
+			groupList.append(sexAge)
 			
 		#The female 35-39 age group
-		elif OID in ["71", "72", "73", "74", "75"]:
+		elif "3539_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -206,9 +242,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf3539 = (1.55 * (845.6 + 8.118 * kg5)) * popf3539
 			LLER += nutf3539
 			totalPop += popf3539
+			sexAge = "3539_F"
+			groupList.append(sexAge)
 		
 		#The male 35-39 age group
-		elif OID in ["76", "77", "78", "79", "80"]:
+		elif "3539_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -216,9 +254,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm3539 = (1.55 * (873.1 + 11.472 * kg5)) * popm3539
 			LLER += nutm3539
 			totalPop += popm3539
+			sexAge = "3539_M"
+			groupList.append(sexAge)
 			
 		#The female 40-44 age group
-		elif OID in ["81", "82", "83", "84", "85"]:
+		elif "4044_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -226,9 +266,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf4044 = (1.55 * (845.6 + 8.118 * kg5)) * popf4044
 			LLER += nutf4044
 			totalPop += popf4044
+			sexAge = "4044_F"
+			groupList.append(sexAge)
 			
 		#The male 40-44 age group
-		elif OID in ["86", "87", "88", "89", "90"]:
+		elif "4044_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -236,9 +278,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm4044 = (1.55 * (873.1 + 11.472 * kg5)) * popm4044
 			LLER += nutm4044
 			totalPop += popm4044
+			sexAge = "4044_M"
+			groupList.append(sexAge)
 			
 		#The female 45-49 age group
-		elif OID in ["91", "92", "93", "94", "95"]:
+		elif "4549_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -246,9 +290,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf4549 = (1.55 * (845.6 + 8.118 * kg5)) * popf4549
 			LLER += nutf4549
 			totalPop += popf4549
+			sexAge = "4549_F"
+			groupList.append(sexAge)
 			
 		#The male 45-49 age group
-		elif OID in ["96", "97", "98", "99", "100"]:
+		elif "4549_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -256,9 +302,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm4549 = (1.55 * (873.1 + 11.472 * kg5)) * popm4549
 			LLER += nutm4549
 			totalPop += popm4549
+			sexAge = "4549_M"
+			groupList.append(sexAge)
 			
 		#The female 50-54 age group
-		elif OID in ["101", "102", "103", "104", "105"]:
+		elif "5054_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -266,9 +314,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf5054 = (1.55 * (845.6 + 8.118 * kg5)) * popf5054
 			LLER += nutf5054
 			totalPop += popf5054
+			sexAge = "5054_F"
+			groupList.append(sexAge)
 			
 		#The male 50-54 age group
-		elif OID in ["106", "107", "108", "109", "110"]:
+		elif "5054_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -276,9 +326,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm5054 = (1.55 * (873.1 + 11.472 * kg5)) * popm5054
 			LLER += nutm5054
 			totalPop += popm5054
+			sexAge = "5054_M"
+			groupList.append(sexAge)
 			
 		#The female 55-59 age group
-		elif OID in ["111", "112", "113", "114", "115"]:
+		elif "5559_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -286,9 +338,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf5559 = (1.55 * (845.6 + 8.118 * kg5)) * popf5559
 			LLER += nutf5559
 			totalPop += popf5559
+			sexAge = "5559_F"
+			groupList.append(sexAge)
 			
 		#The male 55-59 age group
-		elif OID in ["116", "117", "118", "119", "120"]:
+		elif "5559_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -296,9 +350,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm5559 = (1.55 * (873.1 + 11.472 * kg5)) * popm5559
 			LLER += nutm5559
 			totalPop += popm5559
+			sexAge = "5559_M"
+			groupList.append(sexAge)
 			
 		#The female 60-64 age group
-		elif OID in ["121", "122", "123", "124", "125"]:
+		elif "6064_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -306,9 +362,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf6064 = (1.55 * (658.5 + 9.082 * kg5)) * popf6064
 			LLER += nutf6064
 			totalPop += popf6064
+			sexAge = "6064_F"
+			groupList.append(sexAge)
 			
 		#The male 60-64 age group
-		elif OID in ["126", "127", "128", "129", "130"]:
+		elif "6064_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -316,9 +374,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm6064 = (1.55 * (587.7 + 11.711 * kg5)) * popm6064
 			LLER += nutm6064
 			totalPop += popm6064
+			sexAge = "6064_M"
+			groupList.append(sexAge)
 			
 		#The female 65+ age group
-		elif OID in ["131", "132", "133", "134", "135"]:
+		elif "65PL_F" in r:
 			height = (femaleStatureInt / 161.8) * 163.3383
 			kg5 = 17.38 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -326,9 +386,11 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutf65pl = (1.55 * (658.5 + 9.082 * kg5)) * popf65pl
 			LLER += nutf65pl
 			totalPop += popf65pl
+			sexAge = "65PL_F"
+			groupList.append(sexAge)
 			
 		#The male 65+ age group
-		elif OID in ["136", "137", "138", "139", "140"]:
+		elif "65PL_M" in r:
 			height = (maleStatureInt / 175.7) * 176.8492
 			kg5 = 18.66 * ((height / 100)**2)
 			array = arcpy.RasterToNumPyArray(r, "", "", "", 0)
@@ -336,10 +398,17 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			nutm65pl = (1.55 * (587.7 + 11.711 * kg5)) * popm65pl
 			LLER += nutm65pl
 			totalPop += popm65pl
+			sexAge = "65PL_M"
+			groupList.append(sexAge)
 			
 		else:
 			arcpy.AddMessage("Calculating Nutrition Metrics for AOI... ")
 			
+	#The Africa continent rasterList does not include a WorldPop layer for m65pl 2020. Make this a missing value.
+	if "65PL_M" not in groupList and year == "2020":
+		popm65pl = 999999999
+		nutm65pl = 999999999
+	
 	#Append the Nutrition Information to a copy of the AOI
 	#Create copy
 	copyAOI = arcpy.CopyFeatures_management(AOI, os.path.join(arcpy.env.scratchFolder, "intOutput", "copyAOI"))
@@ -350,8 +419,9 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 	for field in fieldObjList:
 		if not field.required:
 			fieldNameList.append(field.name)
-	fieldNameList = fieldNameList[1:]    #Need to leave at least one of the fields
-	arcpy.DeleteField_management(copyAOI, fieldNameList)
+	fieldNameList2 = fieldNameList[1:]    #Need to leave at least one of the fields
+	if len(fieldNameList2) >= 1:
+		arcpy.DeleteField_management(copyAOI, fieldNameList2)
 	dissolveField = ""
 	for field in fieldObjList:
 		if field.type == "OID":
@@ -400,17 +470,22 @@ def nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaic
 			row[2] = LLER
 			cursor.updateRow(row)
 	
-	#Output the final shapefile to disk
-	result = arcpy.CopyFeatures_management(copyAOIDis, os.path.join(os.path.dirname(outShapefile), os.path.basename(outShapefile)))		
+	#Output the final shapefile
+	result = arcpy.CopyFeatures_management(copyAOIDis, os.path.join(arcpy.env.scratchFolder, "intOutput", "finalOutput"))
+	
+	#Create a csv file with information from the attribute table
+	table = arcpy.TableToTable_conversion(result, arcpy.env.scratchFolder, "outputTable.dbf")
+
 	
 if __name__ == '__main__':
+	isLicensed()
+	
 	#Get the values of the input parameters
 	AOI = arcpy.GetParameterAsText(0)
-	mosaicDB = arcpy.GetParameterAsText(1)
+	rasterFolder = arcpy.GetParameterAsText(1)
 	year = arcpy.GetParameterAsText(2)
 	maleStature = arcpy.GetParameterAsText(3)
 	femaleStature = arcpy.GetParameterAsText(4)
-	outShapefile = arcpy.GetParameterAsText(5)
 	
 	###-----------------------------------------------------------------------------------###
 	#The below content has been commented out, but will be used in the geo web app
@@ -431,32 +506,24 @@ if __name__ == '__main__':
 	#global to increment over records
 	rec = 0
 	
-	#This block of code is used to ensure that a downloaded mosaic 
-	#dataset will be identified regardless of where the folder is stored.
-	#This code won't be needed for the web version.
-	sourceRasters_stepOne = os.path.split(mosaicDB)[0]
-	sourceRasters_stepTwo = os.path.split(sourceRasters_stepOne)[0]
-	paths = "* " + "'" + str(sourceRasters_stepTwo) + "'"
-	arcpy.RepairMosaicDatasetPaths_management(mosaicDB, paths)
-	
-	#Define no data values
-	bands = 1
-	nodataval = ""
-	nodatarange = "BAND_1 0 1000000"
-	query = "#"
-	mode = "#"
-	arcpy.DefineMosaicDatasetNoData_management(mosaicDB, bands, nodataval, nodatarange, query, mode)
-	
-	#This is the end of the block of code to identify the source rasters of a mosaic dataset.
-	#This code will only need to be implemented on the desktop version of the tool.
-	#It also should only be implemented if the mosaic dataset that's being used was downloaded
-	#as part of the tool's sample data.
+	#obtain a list of rasters for the chosen continent
+	arcpy.env.workspace = rasterFolder
+	rasterList = arcpy.ListRasters()
 	
 	
 	#Run the nutrition function
 	try:
-		nutritionMetrics(AOI, year, maleStature, femaleStature, outShapefile, mosaicDB)
+		nutritionMetrics(AOI, year, maleStature, femaleStature, rasterList)
 		
 	except Exception:
 		e = sys.exc_info()[1]
 		arcpy.AddError('An error occurred: {}'.format(e.args[0]))
+	result = os.path.join(arcpy.env.scratchFolder, "intOutput", "finalOutput.shp")
+	copyresult = arcpy.CopyFeatures_management(result, os.path.join(arcpy.env.scratchFolder, "finalOutput"))
+	table = os.path.join(arcpy.env.scratchFolder, "outputTable.dbf")
+	#Remove the scratch folder and add output to map.
+	os.chdir(arcpy.env.scratchFolder)
+	shutil.rmtree(os.path.join(arcpy.env.scratchFolder, 'intOutput'))
+	arcpy.SetParameter(5, copyresult)
+	arcpy.SetParameter(6, table)
+	#I'll need to add some code here to also output a csv (dbf) file
